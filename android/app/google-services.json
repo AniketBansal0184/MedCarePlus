@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "196050807324",
+    "project_id": "emobile-af46a",
+    "storage_bucket": "emobile-af46a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:196050807324:android:9df68743dfb2183c774dd9",
+        "android_client_info": {
+          "package_name": "com.aniket1457.emobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDcoN5ahSb42T6TE-qZfuQOB-eCqCct3Yo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
