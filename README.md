@@ -101,6 +101,8 @@ npm run reset-project
 
 ## 📂 Project Structure
 
+```plaintext
+
 EMobile/
 ├── app/                    # File-based routing with Expo Router
 │   ├── checkout.tsx        # Checkout screen
@@ -136,7 +138,7 @@ EMobile/
 ├── metro.config.js         # Metro bundler configuration
 ├── package.json            # Frontend dependencies and scripts
 └── README.md               # You're here!
-
+```
 ---
 
 ## 🛠 Development
