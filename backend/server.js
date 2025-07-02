@@ -1,27 +1,3 @@
-// const express = require('express');
-// const mongoose = require('mongoose');
-// const dotenv = require('dotenv');
-// const cors = require('cors');
-
-// dotenv.config();
-// const app = express();
-
-// app.use(cors());
-// app.use(express.json());
-
-// mongoose.connect(process.env.MONGO_URI, {
-//   useNewUrlParser: true,
-//   useUnifiedTopology: true,
-// }).then(() => console.log('MongoDB connected')).catch(err => console.log(err));
-
-// app.use('/api/auth', require('./routes/auth'));
-// app.use('/api/orders', require('./routes/orders'));
-// app.use('/api/cart', require('./routes/cart'));
-
-
-// const PORT = process.env.PORT || 5000;
-// app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
 const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
@@ -47,8 +23,8 @@ mongoose.connect(process.env.MONGO_URI, {
     if (couponCount === 0) {
       const coupons = [
         { code: 'SAVE10', discount: 10 },
+        { code: 'SAVE15', discount: 15 },
         { code: 'SAVE20', discount: 20 },
-        { code: 'SAVE50', discount: 50 },
       ];
       await Coupon.insertMany(coupons);
       console.log('Coupons seeded successfully');
