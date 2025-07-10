@@ -6,8 +6,10 @@
       "@/*": [
         "./*"
       ]
-    }
+    },
+    "importHelpers": true
   },
+  
   "include": [
     "**/*.ts",
     "**/*.tsx",

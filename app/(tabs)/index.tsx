@@ -1,22 +1,40 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ScrollView, Image, Linking, Platform, TextInput } from 'react-native';
-import { Video } from 'expo-av';
 import { router } from 'expo-router';
-import { MotiView, AnimatePresence } from 'moti';
+import { MotiView, MotiImage, MotiText, AnimatePresence } from 'moti';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { useAnimatedScrollHandler, useSharedValue, interpolate, useAnimatedStyle } from 'react-native-reanimated';
 const { width, height } = Dimensions.get('window');
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
   const [faqOpen, setFaqOpen] = useState(-1);
   const [userId, setUserId] = useState(null);
+  const scrollY = useSharedValue(0);
+
+  useEffect(() => {
+  const checkAdmin = async () => {
+    const data = await AsyncStorage.getItem('userData');
+    const parsed = data ? JSON.parse(data) : null;
+    if (parsed?.role === 'admin') {
+      router.replace('/(tabs)/profile'); // block admin access
+    }
+  };
+  checkAdmin();
+}, []);
 
   useEffect(() => {
     AsyncStorage.getItem('userId').then(setUserId);
   }, []);
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
 
   const addToCart = async (item) => {
     if (!userId) return alert('User not logged in');
@@ -39,48 +57,73 @@ export default function Home() {
     setLoading(false);
   };
 
+  const headerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: interpolate(scrollY.value, [0, height * 0.2], [0, -height * 0.1], 'clamp') }],
+    opacity: interpolate(scrollY.value, [0, height * 0.15], [1, 0.6], 'clamp'),
+  }));
+
   return (
     <View style={styles.container}>
-      <Video
-        source={{ uri: 'https://cdn.pixabay.com/video/2024/05/02/211231-943600483_large.mp4' }}
-        isMuted
-        rate={1.0}
-        resizeMode="cover"
-        shouldPlay
-        isLooping
-        style={styles.video}
+      <MotiImage
+        source={{ uri: 'https://images.pexels.com/photos/3683056/pexels-photo-3683056.jpeg' }}
+        style={styles.background}
+        from={{ opacity: 0, scale: 1.3 }}
+        animate={{ opacity: 0.4, scale: 1, translateY: scrollY.value * 0.3 }}
+        transition={{ type: 'timing', duration: 1000, loop: Platform.OS !== 'web' }}
       />
       <View style={styles.overlay} />
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
-        <View style={styles.hero}>
+      <Animated.ScrollView
+        contentContainerStyle={{ paddingBottom: width * 0.05 }}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+      >
+        <Animated.View style={[styles.hero, headerStyle]}>
           <MotiView
-            from={{ opacity: 0, translateY: 30, scale: 0.95 }}
+            from={{ opacity: 0, translateY: width * 0.2, scale: 0.85 }}
             animate={{ opacity: 1, translateY: 0, scale: 1 }}
-            transition={{ type: 'spring', duration: 800, damping: 20 }}
+            transition={{ type: 'spring', stiffness: 100, damping: 15, mass: 0.7, duration: Platform.OS === 'web' ? 600 : 800 }}
           >
             <Text style={styles.heading}>
               Welcome to <Text style={{ color: '#34D399' }}>MediCare+</Text>
             </Text>
-            <Text style={styles.subheading}>
+            <MotiText
+              from={{ opacity: 0, translateY: width * 0.05 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: 'spring', delay: 200, stiffness: 90, damping: 14 }}
+              style={styles.subheading}
+            >
               India’s #1 Digital Pharmacy & Medical Marketplace
-            </Text>
-            <TouchableOpacity style={styles.btnPrimary} onPress={() => router.push('/shop')}>
-              <Text style={styles.btnText}>Shop Medicines</Text>
+            </MotiText>
+            <TouchableOpacity onPress={() => router.push('/shop')}>
+              <MotiView
+                from={{ scale: 1, rotateZ: '0deg' }}
+                whileHover={{ scale: Platform.OS === 'web' ? 1.05 : 1, rotateZ: Platform.OS === 'web' ? '2deg' : '0deg' }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: 'spring', stiffness: 180, damping: 12 }}
+              >
+                <LinearGradient colors={['#3B82F6', '#22C55E']} style={styles.btnPrimary}>
+                  <Text style={styles.btnText}>Shop Medicines</Text>
+                </LinearGradient>
+              </MotiView>
             </TouchableOpacity>
           </MotiView>
-        </View>
+        </Animated.View>
 
         <MotiView
           style={styles.sectionRow}
-          from={{ opacity: 0, translateY: 20 }}
+          from={{ opacity: 0, translateY: width * 0.1 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'spring', delay: 400, duration: 600 }}
+          transition={{ type: 'spring', delay: 400, stiffness: 90, damping: 15 }}
         >
-          <FeatureCard icon="https://cdn-icons-png.flaticon.com/512/3534/3534069.png" title="Express Delivery" />
-          <FeatureCard icon="https://cdn-icons-png.flaticon.com/512/2961/2961335.png" title="100% Genuine" />
-          <FeatureCard icon="https://cdn-icons-png.flaticon.com/512/2907/2907762.png" title="24/7 Support" />
-          <FeatureCard icon="https://cdn-icons-png.flaticon.com/512/3063/3063171.png" title="Expert Verified" />
+          {['Express Delivery', '100% Genuine', '24/7 Support', 'Expert Verified'].map((title, index) => (
+            <FeatureCard
+              key={index}
+              icon={`https://cdn-icons-png.flaticon.com/512/3534/353406${[9, 5, 2, 1][index]}.png`}
+              title={title}
+              index={index}
+            />
+          ))}
         </MotiView>
 
         <SectionHeading title="Shop by Category" />
@@ -96,72 +139,76 @@ export default function Home() {
         </View>
 
         <SectionHeading title="Popular Products" />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingLeft: 12 }}>
-          <ShopProduct
-            img="https://images.pexels.com/photos/3683098/pexels-photo-3683098.jpeg?auto=compress&cs=tinysrgb&w=600"
-            name="Paracetamol 500mg"
-            price="₹35"
-            offPrice="₹60"
-            addToCart={addToCart}
-          />
-          <ShopProduct
-            img="https://images.pexels.com/photos/825661/pexels-photo-825661.jpeg?auto=compress&cs=tinysrgb&w=600"
-            name="N95 Mask"
-            price="₹79"
-            offPrice="₹120"
-            addToCart={addToCart}
-          />
-          <ShopProduct
-            img="https://images.pexels.com/photos/3683108/pexels-photo-3683108.jpeg?auto=compress&cs=tinysrgb&w=600"
-            name="Vitamin D3"
-            price="₹249"
-            offPrice="₹299"
-            addToCart={addToCart}
-          />
-          <ShopProduct
-            img="https://images.pexels.com/photos/3683056/pexels-photo-3683056.jpeg?auto=compress&cs=tinysrgb&w=600"
-            name="BP Machine"
-            price="₹1299"
-            offPrice="₹1800"
-            addToCart={addToCart}
-          />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingLeft: width * 0.03 }}>
+          {[
+            { img: 'https://images.pexels.com/photos/3683098/pexels-photo-3683098.jpeg?auto=compress&cs=tinysrgb&w=600', name: 'Paracetamol 500mg', price: '₹35', offPrice: '₹60' },
+            { img: 'https://images.pexels.com/photos/825661/pexels-photo-825661.jpeg?auto=compress&cs=tinysrgb&w=600', name: 'N95 Mask', price: '₹79', offPrice: '₹120' },
+            { img: 'https://images.pexels.com/photos/3683108/pexels-photo-3683108.jpeg?auto=compress&cs=tinysrgb&w=600', name: 'Vitamin D3', price: '₹249', offPrice: '₹299' },
+            { img: 'https://images.pexels.com/photos/3683056/pexels-photo-3683056.jpeg?auto=compress&cs=tinysrgb&w=600', name: 'BP Machine', price: '₹1299', offPrice: '₹1800' },
+          ].map((product, index) => (
+            <ShopProduct
+              key={index}
+              img={product.img}
+              name={product.name}
+              price={product.price}
+              offPrice={product.offPrice}
+              addToCart={addToCart}
+              index={index}
+            />
+          ))}
         </ScrollView>
 
         <SectionHeading title="Exclusive for You" />
         <View style={styles.offerBanner}>
-          <Image
+          <MotiImage
             source={{ uri: 'https://images.pexels.com/photos/139398/pexels-photo-139398.jpeg?auto=compress&cs=tinysrgb&w=600' }}
             style={styles.offerImg}
+            from={{ opacity: 0, scale: 0.8, rotateZ: '-8deg' }}
+            animate={{ opacity: 1, scale: 1, rotateZ: '0deg' }}
+            transition={{ type: 'spring', stiffness: 120, damping: 14, duration: Platform.OS === 'web' ? 600 : 800 }}
           />
-          <View style={{ flex: 1, paddingLeft: 12 }}>
-            <Text style={styles.offerHeading}>50% OFF on First Order</Text>
-            <Text style={styles.offerSmall}>
-              Use code <Text style={{ fontWeight: 'bold' }}>MEDI50</Text> at checkout
-            </Text>
-            <TouchableOpacity style={styles.btnOutlineSmall} onPress={() => router.push('/shop')}>
-              <Text style={styles.btnOutlineText}>Shop Now</Text>
+          <View style={{ flex: 1, paddingLeft: width * 0.03 }}>
+            <MotiText
+              from={{ opacity: 0, translateX: width * 0.05 }}
+              animate={{ opacity: 1, translateX: 0 }}
+              transition={{ type: 'spring', delay: 300, stiffness: 90, damping: 14 }}
+              style={styles.offerSmall}
+            >
+              Use code <Text style={{ fontWeight: 'bold' }}>MEDI20</Text> at checkout
+            </MotiText>
+            <TouchableOpacity onPress={() => router.push('/shop')}>
+              <MotiView
+                from={{ scale: 1, rotateZ: '0deg' }}
+                whileHover={{ scale: Platform.OS === 'web' ? 1.05 : 1, rotateZ: Platform.OS === 'web' ? '2deg' : '0deg' }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: 'spring', stiffness: 180, damping: 12 }}
+              >
+                <LinearGradient colors={['#3B82F6', '#22C55E']} style={styles.btnMini}>
+                  <Text style={styles.btnText}>Shop Medicines</Text>
+                </LinearGradient>
+              </MotiView>
             </TouchableOpacity>
           </View>
         </View>
 
         <SectionHeading title="Health Tips & Blogs" />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingLeft: 12 }}>
-          <BlogCard
-            img="https://images.unsplash.com/photo-1618498317473-b32c6e7b1fbf?auto=format&fit=crop&w=600&q=80"
-            title="How to Boost Your Immunity"
-          />
-          <BlogCard
-            img="https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=600&q=80"
-            title="Benefits of Regular Exercise"
-          />
-          <BlogCard
-            img="https://images.unsplash.com/photo-1490818387583-1b2a9dc335f6?auto=format&fit=crop&w=600&q=80"
-            title="5 Diet Mistakes to Avoid"
-          />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingLeft: width * 0.03 }}>
+          {[
+            { img: 'https://images.unsplash.com/photo-1618498317473-b32c6e7b1fbf?auto=format&fit=crop&w=600&q=80', title: 'How to Boost Your Immunity' },
+            { img: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=600&q=80', title: 'Benefits of Regular Exercise' },
+            { img: 'https://images.unsplash.com/photo-1490818387583-1b2a9dc335f6?auto=format&fit=crop&w=600&q=80', title: '5 Diet Mistakes to Avoid' },
+          ].map((blog, index) => (
+            <BlogCard
+              key={index}
+              img={blog.img}
+              title={blog.title}
+              index={index}
+            />
+          ))}
         </ScrollView>
 
         <SectionHeading title="Frequently Asked Questions" />
-        <View style={{ paddingHorizontal: 14, marginBottom: 12 }}>
+        <View style={{ paddingHorizontal: width * 0.035, marginBottom: width * 0.03 }}>
           {faqs.map((faq, i) => (
             <FaqItem
               key={i}
@@ -176,57 +223,69 @@ export default function Home() {
 
         <SectionHeading title="Get the App" />
         <View style={styles.dlSection}>
-          <Text style={styles.dlDesc}>
+          <MotiText
+            from={{ opacity: 0, translateY: width * 0.05 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'spring', duration: 800, delay: 200, stiffness: 90, damping: 14 }}
+            style={styles.dlDesc}
+          >
             Experience the fastest medical delivery, exclusive deals, and 1-click digital prescription upload with our app!
-          </Text>
+          </MotiText>
           <View style={styles.dlRow}>
-            <TouchableOpacity onPress={() => Linking.openURL('https://play.google.com')} style={styles.dlBtn}>
-              <FontAwesome name="android" size={24} color="#fff" />
-              <Text style={styles.dlBtnText}>Google Play</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => Linking.openURL('https://apple.com/app-store')} style={styles.dlBtn}>
-              <FontAwesome name="apple" size={24} color="#fff" />
-              <Text style={styles.dlBtnText}>App Store</Text>
-            </TouchableOpacity>
+            {[
+              { platform: 'Google Play', url: 'https://play.google.com', icon: 'android' },
+              { platform: 'App Store', url: 'https://apple.com/app-store', icon: 'apple' },
+            ].map((item, index) => (
+              <TouchableOpacity key={index} onPress={() => Linking.openURL(item.url)}>
+                <MotiView
+                  from={{ scale: 1, rotateZ: '0deg' }}
+                  whileHover={{ scale: Platform.OS === 'web' ? 1.1 : 1, rotateZ: Platform.OS === 'web' ? `${index % 2 === 0 ? 5 : -5}deg` : '0deg' }}
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ type: 'spring', stiffness: 160, damping: 12 }}
+                >
+                  <LinearGradient colors={['#3B82F6', '#22C55E']} style={styles.dlBtn}>
+                    <FontAwesome name={item.icon} size={width * 0.06} color="#fff" />
+                    <Text style={styles.dlBtnText}>{item.platform}</Text>
+                  </LinearGradient>
+                </MotiView>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
 
         <SectionHeading title="Loved by Customers" />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingLeft: 10, marginBottom: 10 }}>
-          <Testimonial
-            user="Anjali R."
-            img="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80"
-            msg="Excellent service! Medicines delivered on time and prices were affordable."
-          />
-          <Testimonial
-            user="Ravi K."
-            img="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80"
-            msg="Very professional and smooth experience. Will order again!"
-          />
-          <Testimonial
-            user="Sarah P."
-            img="https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=150&q=80"
-            msg="Easy interface, good product selection. Saved my family during covid."
-          />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingLeft: width * 0.025, marginBottom: width * 0.025 }}>
+          {[
+            { user: 'Anjali R.', img: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80', msg: 'Excellent service! Medicines delivered on time and prices were affordable.' },
+            { user: 'Ravi K.', img: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80', msg: 'Very professional and smooth experience. Will order again!' },
+            { user: 'Sarah P.', img: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=150&q=80', msg: 'Easy interface, good product selection. Saved my family during covid.' },
+          ].map((testimonial, index) => (
+            <Testimonial
+              key={index}
+              user={testimonial.user}
+              img={testimonial.img}
+              msg={testimonial.msg}
+              index={index}
+            />
+          ))}
         </ScrollView>
 
         <Footer />
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }
 
-function FeatureCard({ icon, title }) {
+function FeatureCard({ icon, title, index }) {
   return (
     <MotiView
-      from={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ type: 'spring', duration: 500 }}
+      from={{ opacity: 0, scale: 0.8, rotateX: '-10deg', translateY: width * 0.05 }}
+      animate={{ opacity: 1, scale: 1, rotateX: '0deg', translateY: 0 }}
+      transition={{ type: 'spring', duration: 600, delay: index * 100, stiffness: 100, damping: 14 }}
+      style={styles.featureCard}
     >
-      <View style={styles.featureCard}>
-        <Image source={{ uri: icon }} style={styles.featureIcon} cache="force-cache" />
-        <Text style={styles.featureText}>{title}</Text>
-      </View>
+      <Image source={{ uri: icon }} style={styles.featureIcon} cache="force-cache" />
+      <Text style={styles.featureText}>{title}</Text>
     </MotiView>
   );
 }
@@ -234,19 +293,18 @@ function FeatureCard({ icon, title }) {
 function CategoryCard({ icon, label, index }) {
   return (
     <MotiView
-      from={{ opacity: 0, translateY: 10 }}
-      animate={{ opacity: 1, translateY: 0 }}
-      transition={{ type: 'spring', duration: 500, delay: index * 100 }}
+      from={{ opacity: 0, translateY: width * 0.1, rotateY: '-10deg' }}
+      animate={{ opacity: 1, translateY: 0, rotateY: '0deg' }}
+      transition={{ type: 'spring', duration: 600, delay: index * 150, stiffness: 90, damping: 14 }}
+      style={styles.catCard}
     >
-      <View style={styles.catCard}>
-        <Image source={{ uri: icon }} style={styles.catIcon} cache="force-cache" />
-        <Text style={styles.catLabel}>{label}</Text>
-      </View>
+      <Image source={{ uri: icon }} style={styles.catIcon} cache="force-cache" />
+      <Text style={styles.catLabel}>{label}</Text>
     </MotiView>
   );
 }
 
-function ShopProduct({ img, name, price, offPrice, addToCart }) {
+function ShopProduct({ img, name, price, offPrice, addToCart, index }) {
   const item = {
     name,
     price: parseFloat(price.replace('₹', '')),
@@ -257,21 +315,29 @@ function ShopProduct({ img, name, price, offPrice, addToCart }) {
 
   return (
     <MotiView
-      from={{ opacity: 0, translateX: 20 }}
-      animate={{ opacity: 1, translateX: 0 }}
-      transition={{ type: 'spring', duration: 600 }}
+      from={{ opacity: 0, translateX: width * 0.1, scale: 0.9 }}
+      animate={{ opacity: 1, translateX: 0, scale: 1 }}
+      transition={{ type: 'spring', duration: 600, delay: index * 100, stiffness: 100, damping: 14 }}
+      style={styles.productCard}
     >
-      <View style={styles.productCard}>
-        <Image source={{ uri: img }} style={styles.prodImg} cache="force-cache" />
-        <Text style={styles.prodName}>{name}</Text>
-        <Text style={styles.prodPrice}>
-          <Text style={{ color: '#22C55E' }}>{price}</Text>{' '}
-          <Text style={styles.prodOff}>{offPrice}</Text>
-        </Text>
-        <TouchableOpacity style={styles.btnMini} onPress={() => addToCart(item)}>
-          <Text style={styles.btnMiniText}>Add to Cart</Text>
-        </TouchableOpacity>
-      </View>
+      <Image source={{ uri: img }} style={styles.prodImg} cache="force-cache" />
+      <Text style={styles.prodName}>{name}</Text>
+      <Text style={styles.prodPrice}>
+        <Text style={{ color: '#22C55E' }}>{price}</Text>{' '}
+        <Text style={styles.prodOff}>{offPrice}</Text>
+      </Text>
+      <TouchableOpacity onPress={() => addToCart(item)}>
+        <MotiView
+          from={{ scale: 1 }}
+          whileHover={{ scale: Platform.OS === 'web' ? 1.05 : 1 }}
+          whileTap={{ scale: 0.95 }}
+          transition={{ type: 'spring', stiffness: 180, damping: 12 }}
+        >
+          <LinearGradient colors={['#3B82F6', '#22C55E']} style={styles.btnMini}>
+            <Text style={styles.btnMiniText}>Add to Cart</Text>
+          </LinearGradient>
+        </MotiView>
+      </TouchableOpacity>
     </MotiView>
   );
 }
@@ -279,26 +345,25 @@ function ShopProduct({ img, name, price, offPrice, addToCart }) {
 function SectionHeading({ title }) {
   return (
     <MotiView
-      from={{ opacity: 0, translateY: 10 }}
+      from={{ opacity: 0, translateY: width * 0.05 }}
       animate={{ opacity: 1, translateY: 0 }}
-      transition={{ type: 'spring', duration: 500 }}
+      transition={{ type: 'spring', duration: 500, stiffness: 90, damping: 14 }}
     >
       <Text style={styles.secHeading}>{title}</Text>
     </MotiView>
   );
 }
 
-function BlogCard({ img, title }) {
+function BlogCard({ img, title, index }) {
   return (
     <MotiView
-      from={{ opacity: 0, translateX: 20 }}
-      animate={{ opacity: 1, translateX: 0 }}
-      transition={{ type: 'spring', duration: 600 }}
+      from={{ opacity: 0, translateX: width * 0.1, scale: 0.9 }}
+      animate={{ opacity: 1, translateX: 0, scale: 1 }}
+      transition={{ type: 'spring', duration: 600, delay: index * 100, stiffness: 100, damping: 14 }}
+      style={styles.blogCard}
     >
-      <View style={styles.blogCard}>
-        <Image source={{ uri: img }} style={styles.blogImg} cache="force-cache" />
-        <Text style={styles.blogTitle}>{title}</Text>
-      </View>
+      <Image source={{ uri: img }} style={styles.blogImg} cache="force-cache" />
+      <Text style={styles.blogTitle}>{title}</Text>
     </MotiView>
   );
 }
@@ -306,49 +371,53 @@ function BlogCard({ img, title }) {
 function FaqItem({ idx, open, setOpen, q, a }) {
   return (
     <MotiView
-      from={{ opacity: 0, translateY: 10 }}
+      from={{ opacity: 0, translateY: width * 0.05 }}
       animate={{ opacity: 1, translateY: 0 }}
-      transition={{ type: 'spring', duration: 500, delay: idx * 100 }}
+      transition={{ type: 'spring', duration: 500, delay: idx * 100, stiffness: 90, damping: 14 }}
+      style={styles.faqCard}
     >
-      <View style={styles.faqCard}>
-        <TouchableOpacity
-          onPress={() => setOpen(open ? -1 : idx)}
-          style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+      <TouchableOpacity
+        onPress={() => setOpen(open ? -1 : idx)}
+        style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+      >
+        <Text style={styles.faqQ}>{q}</Text>
+        <MotiView
+          from={{ rotate: '0deg' }}
+          animate={{ rotate: open ? '180deg' : '0deg' }}
+          transition={{ type: 'spring', duration: 300, stiffness: 120, damping: 14 }}
         >
-          <Text style={styles.faqQ}>{q}</Text>
-          <Ionicons name={open ? 'chevron-up-circle' : 'chevron-down-circle'} size={24} color="#3B82F6" />
-        </TouchableOpacity>
-        <AnimatePresence>
-          {open && (
-            <MotiView
-              from={{ opacity: 0, translateY: -10 }}
-              animate={{ opacity: 1, translateY: 0 }}
-              exit={{ opacity: 0, translateY: -10 }}
-              transition={{ type: 'spring', duration: 350 }}
-            >
-              <Text style={styles.faqA}>{a}</Text>
-            </MotiView>
-          )}
-        </AnimatePresence>
-      </View>
+          <Ionicons name={open ? 'chevron-up-circle' : 'chevron-down-circle'} size={width * 0.06} color="#3B82F6" />
+        </MotiView>
+      </TouchableOpacity>
+      <AnimatePresence>
+        {open && (
+          <MotiView
+            from={{ opacity: 0, translateY: -width * 0.025 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            exit={{ opacity: 0, translateY: -width * 0.025 }}
+            transition={{ type: 'spring', duration: 350, stiffness: 90, damping: 14 }}
+          >
+            <Text style={styles.faqA}>{a}</Text>
+          </MotiView>
+        )}
+      </AnimatePresence>
     </MotiView>
   );
 }
 
-function Testimonial({ user, msg, img }) {
+function Testimonial({ user, msg, img, index }) {
   return (
     <MotiView
-      from={{ opacity: 0, translateX: 20 }}
-      animate={{ opacity: 1, translateX: 0 }}
-      transition={{ type: 'spring', duration: 600 }}
+      from={{ opacity: 0, translateX: width * 0.1, scale: 0.9 }}
+      animate={{ opacity: 1, translateX: 0, scale: 1 }}
+      transition={{ type: 'spring', duration: 600, delay: index * 100, stiffness: 100, damping: 14 }}
+      style={styles.testimonialCard2}
     >
-      <View style={styles.testimonialCard2}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Image source={{ uri: img }} style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }} cache="force-cache" />
-          <Text style={styles.testimonialUser2}>{user}</Text>
-        </View>
-        <Text style={styles.testimonialMsg2}>"{msg}"</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <Image source={{ uri: img }} style={{ width: width * 0.1, height: width * 0.1, borderRadius: width * 0.05, marginRight: width * 0.025 }} cache="force-cache" />
+        <Text style={styles.testimonialUser2}>{user}</Text>
       </View>
+      <Text style={styles.testimonialMsg2}>"{msg}"</Text>
     </MotiView>
   );
 }
@@ -364,63 +433,45 @@ function Footer() {
 
   return (
     <MotiView
-      from={{ opacity: 0, translateY: 20 }}
+      from={{ opacity: 0, translateY: width * 0.05 }}
       animate={{ opacity: 1, translateY: 0 }}
-      transition={{ type: 'spring', duration: 600 }}
+      transition={{ type: 'spring', duration: 600, stiffness: 90, damping: 14 }}
     >
-      <View style={[styles.footerMega, { backgroundColor: '#1E3A8A' }]}>
+      <LinearGradient colors={['#1E3A8A', '#2B6CB0']} style={styles.footerMega}>
         <View style={styles.footerRowTop}>
           <View style={{ flex: 1 }}>
             <MotiView
               from={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ type: 'spring', duration: 500, delay: 100 }}
+              transition={{ type: 'spring', duration: 500, delay: 100, stiffness: 90, damping: 14 }}
             >
               <Text style={styles.logoFooter}>MediCare+</Text>
               <Text style={styles.footerSlogan}>Your Trusted Health Partner</Text>
               <Text style={styles.footerTagline}>Empowering Health, One Click at a Time</Text>
             </MotiView>
           </View>
-          <View>
-            <View style={styles.socialIcons}>
+          <View style={styles.socialIcons}>
+            {['facebook', 'instagram', 'twitter'].map((platform, index) => (
               <MotiView
+                key={platform}
                 from={{ scale: 1 }}
-                animate={{ scale: 1 }}
-                whileTap={{ scale: 0.9 }}
-                transition={{ type: 'spring', duration: 200 }}
+                whileHover={{ scale: Platform.OS === 'web' ? 1.1 : 1 }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: 'spring', duration: 200, stiffness: 160, damping: 12 }}
+                style={{ marginHorizontal: width * 0.025 }}
               >
-                <TouchableOpacity onPress={() => Linking.openURL('https://facebook.com')}>
-                  <FontAwesome name="facebook" color="#F8FAFC" size={28} />
+                <TouchableOpacity onPress={() => Linking.openURL(`https://${platform}.com`)}>
+                  <FontAwesome name={platform} color="#F8FAFC" size={width * 0.07} />
                 </TouchableOpacity>
               </MotiView>
-              <MotiView
-                from={{ scale: 1 }}
-                animate={{ scale: 1 }}
-                whileTap={{ scale: 0.9 }}
-                transition={{ type: 'spring', duration: 200 }}
-              >
-                <TouchableOpacity onPress={() => Linking.openURL('https://instagram.com')}>
-                  <FontAwesome name="instagram" color="#F8FAFC" size={28} style={{ marginHorizontal: 14 }} />
-                </TouchableOpacity>
-              </MotiView>
-              <MotiView
-                from={{ scale: 1 }}
-                animate={{ scale: 1 }}
-                whileTap={{ scale: 0.9 }}
-                transition={{ type: 'spring', duration: 200 }}
-              >
-                <TouchableOpacity onPress={() => Linking.openURL('https://twitter.com')}>
-                  <FontAwesome name="twitter" color="#F8FAFC" size={28} />
-                </TouchableOpacity>
-              </MotiView>
-            </View>
+            ))}
           </View>
         </View>
 
         <MotiView
-          from={{ opacity: 0, translateY: 10 }}
+          from={{ opacity: 0, translateY: width * 0.025 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'spring', duration: 500, delay: 200 }}
+          transition={{ type: 'spring', duration: 500, delay: 200, stiffness: 90, damping: 14 }}
         >
           <View style={styles.newsletterSection}>
             <Text style={styles.newsletterHeading}>Stay Updated with MediCare+</Text>
@@ -435,8 +486,17 @@ function Footer() {
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
-              <TouchableOpacity style={styles.newsletterButton} onPress={handleNewsletterSignup}>
-                <Text style={styles.newsletterButtonText}>Subscribe</Text>
+              <TouchableOpacity onPress={handleNewsletterSignup}>
+                <MotiView
+                  from={{ scale: 1 }}
+                  whileHover={{ scale: Platform.OS === 'web' ? 1.05 : 1 }}
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ type: 'spring', duration: 200, stiffness: 160, damping: 12 }}
+                >
+                  <LinearGradient colors={['#22C55E', '#34D399']} style={styles.newsletterButton}>
+                    <Text style={styles.newsletterButtonText}>Subscribe</Text>
+                  </LinearGradient>
+                </MotiView>
               </TouchableOpacity>
             </View>
           </View>
@@ -461,14 +521,14 @@ function Footer() {
         </View>
 
         <MotiView
-          from={{ opacity: 0, translateY: 10 }}
+          from={{ opacity: 0, translateY: width * 0.025 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'spring', duration: 500, delay: 600 }}
+          transition={{ type: 'spring', duration: 500, delay: 600, stiffness: 90, damping: 14 }}
         >
           <Text style={styles.copyRight}>© 2025 MediCare+. All rights reserved.</Text>
           <Text style={styles.footerCredit}>Images by Flaticon, Pexels, Unsplash | Powered by MediCare+</Text>
         </MotiView>
-      </View>
+      </LinearGradient>
     </MotiView>
   );
 }
@@ -476,25 +536,24 @@ function Footer() {
 function FooterLinkCol({ heading, links, delay }) {
   return (
     <MotiView
-      from={{ opacity: 0, translateY: 10 }}
+      from={{ opacity: 0, translateY: width * 0.025 }}
       animate={{ opacity: 1, translateY: 0 }}
-      transition={{ type: 'spring', duration: 500, delay }}
+      transition={{ type: 'spring', duration: 500, delay, stiffness: 90, damping: 14 }}
+      style={styles.footerCol}
     >
-      <View style={styles.footerCol}>
-        <Text style={styles.footerHead}>{heading}</Text>
-        {links.map((l, i) => (
-          <MotiView
-            key={i}
-            from={{ opacity: 0, translateX: -10 }}
-            animate={{ opacity: 1, translateX: 0 }}
-            transition={{ type: 'spring', duration: 400, delay: delay + i * 50 }}
-          >
-            <TouchableOpacity onPress={() => Linking.openURL(l.url)}>
-              <Text style={styles.footerLink}>{l.text}</Text>
-            </TouchableOpacity>
-          </MotiView>
-        ))}
-      </View>
+      <Text style={styles.footerHead}>{heading}</Text>
+      {links.map((l, i) => (
+        <MotiView
+          key={i}
+          from={{ opacity: 0, translateX: -width * 0.025 }}
+          animate={{ opacity: 1, translateX: 0 }}
+          transition={{ type: 'spring', duration: 400, delay: delay + i * 50, stiffness: 90, damping: 14 }}
+        >
+          <TouchableOpacity onPress={() => Linking.openURL(l.url)}>
+            <Text style={styles.footerLink}>{l.text}</Text>
+          </TouchableOpacity>
+        </MotiView>
+      ))}
     </MotiView>
   );
 }
@@ -532,95 +591,108 @@ const faqs = [
 
 const styles = StyleSheet.create({
   container: { flex: 1, position: 'relative', backgroundColor: '#F8FAFC' },
-  video: { position: 'absolute', width, height: height + 100, top: 0 },
+  background: {
+    position: 'absolute',
+    width,
+    height: height * 0.4,
+    top: 0,
+    zIndex: -1,
+  },
   overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255, 255, 255, 0.7)' },
   hero: {
-    paddingTop: 90,
+    paddingTop: height * 0.12,
     alignItems: 'center',
-    paddingHorizontal: 24,
-    marginBottom: 16,
+    paddingHorizontal: width * 0.06,
+    marginBottom: width * 0.04,
   },
   heading: {
-    fontSize: 34,
-    fontWeight: '800',
+    fontSize: width * 0.09,
+    fontWeight: '900',
     color: '#1E3A8A',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: width * 0.02,
     fontFamily: Platform.select({ ios: 'Inter-Black', android: 'Inter-Black', default: 'sans-serif' }),
     letterSpacing: 0.5,
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   subheading: {
-    fontSize: 18,
+    fontSize: width * 0.045,
     color: '#64748B',
     textAlign: 'center',
-    marginBottom: 28,
+    marginBottom: width * 0.07,
     fontFamily: Platform.select({ ios: 'Inter-Regular', android: 'Inter-Regular', default: 'sans-serif' }),
   },
   btnPrimary: {
-    backgroundColor: '#3B82F6',
-    paddingVertical: 14,
-    paddingHorizontal: 48,
-    borderRadius: 32,
-    marginBottom: 12,
-    shadowColor: '#3B82F6',
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
+    paddingVertical: width * 0.035,
+    paddingHorizontal: width * 0.12,
+    borderRadius: width * 0.08,
+    marginBottom: width * 0.03,
+    elevation: Platform.OS === 'web' ? 2 : 4,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
   },
   btnText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: width * 0.045,
     fontWeight: '700',
     letterSpacing: 0.5,
+    textAlign: 'center',
     fontFamily: Platform.select({ ios: 'Inter-Bold', android: 'Inter-Bold', default: 'sans-serif' }),
   },
   btnOutlineSmall: {
     borderColor: '#3B82F6',
     borderWidth: 1.5,
-    borderRadius: 24,
-    paddingHorizontal: 18,
-    paddingVertical: 8,
+    borderRadius: width * 0.06,
+    paddingHorizontal: width * 0.045,
+    paddingVertical: width * 0.02,
     alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   btnOutlineText: {
     color: '#3B82F6',
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: width * 0.035,
     fontFamily: Platform.select({ ios: 'Inter-SemiBold', android: 'Inter-SemiBold', default: 'sans-serif' }),
   },
   sectionRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginHorizontal: 12,
-    marginTop: 8,
-    marginBottom: 20,
+    marginHorizontal: width * 0.03,
+    marginTop: width * 0.02,
+    marginBottom: width * 0.05,
   },
   secHeading: {
-    fontSize: 24,
+    fontSize: width * 0.06,
     fontWeight: '800',
     color: '#1E3A8A',
-    marginTop: 40,
-    marginBottom: 16,
-    marginLeft: 16,
+    marginTop: width * 0.1,
+    marginBottom: width * 0.04,
+    marginLeft: width * 0.04,
     fontFamily: Platform.select({ ios: 'Inter-Black', android: 'Inter-Black', default: 'sans-serif' }),
     letterSpacing: 0.3,
   },
   featureCard: {
     alignItems: 'center',
-    width: 90,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 12,
+    width: width * 0.22,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: width * 0.04,
+    padding: width * 0.03,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    elevation: Platform.OS === 'web' ? 2 : 3,
     shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
   },
-  featureIcon: { width: 48, height: 48, marginBottom: 8 },
+  featureIcon: { width: width * 0.12, height: width * 0.12, marginBottom: width * 0.02 },
   featureText: {
     color: '#1E3A8A',
-    fontSize: 14,
+    fontSize: width * 0.035,
     textAlign: 'center',
     fontWeight: '600',
     fontFamily: Platform.select({ ios: 'Inter-SemiBold', android: 'Inter-SemiBold', default: 'sans-serif' }),
@@ -628,287 +700,308 @@ const styles = StyleSheet.create({
   catGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginHorizontal: 12,
+    marginHorizontal: width * 0.03,
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: width * 0.03,
   },
   catCard: {
     alignItems: 'center',
-    width: width / 3.4,
-    marginVertical: 8,
-    backgroundColor: '#E0F2FE',
-    borderRadius: 16,
-    paddingVertical: 14,
-    shadowColor: '#3B82F6',
+    width: width * 0.3,
+    marginVertical: width * 0.02,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: width * 0.04,
+    paddingVertical: width * 0.035,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    elevation: Platform.OS === 'web' ? 2 : 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowRadius: 4,
   },
-  catIcon: { width: 48, height: 48, marginBottom: 8 },
+  catIcon: { width: width * 0.12, height: width * 0.12, marginBottom: width * 0.02 },
   catLabel: {
     color: '#1E3A8A',
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: width * 0.035,
     fontFamily: Platform.select({ ios: 'Inter-Bold', android: 'Inter-Bold', default: 'sans-serif' }),
     textAlign: 'center',
   },
   productCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 14,
-    marginRight: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: width * 0.04,
+    padding: width * 0.035,
+    marginRight: width * 0.04,
     width: width * 0.55,
-    marginBottom: 8,
+    marginBottom: width * 0.02,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    elevation: Platform.OS === 'web' ? 2 : 4,
     shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
   },
-  prodImg: { width: '100%', height: 100, borderRadius: 12, marginBottom: 8 },
+  prodImg: { width: '100%', height: width * 0.25, borderRadius: width * 0.03, marginBottom: width * 0.02 },
   prodName: {
     fontWeight: '700',
-    fontSize: 15,
-    marginBottom: 4,
+    fontSize: width * 0.0375,
+    marginBottom: width * 0.01,
     color: '#1E3A8A',
     fontFamily: Platform.select({ ios: 'Inter-Bold', android: 'Inter-Bold', default: 'sans-serif' }),
   },
   prodPrice: {
     fontWeight: '700',
     color: '#22C55E',
-    marginBottom: 6,
-    fontSize: 15,
+    marginBottom: width * 0.015,
+    fontSize: width * 0.0375,
     fontFamily: Platform.select({ ios: 'Inter-SemiBold', android: 'Inter-SemiBold', default: 'sans-serif' }),
   },
   prodOff: {
     textDecorationLine: 'line-through',
     color: '#64748B',
-    fontSize: 13,
+    fontSize: width * 0.0325,
     fontFamily: Platform.select({ ios: 'Inter-Regular', android: 'Inter-Regular', default: 'sans-serif' }),
   },
   btnMini: {
-    backgroundColor: '#3B82F6',
-    borderRadius: 24,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
+    borderRadius: width * 0.06,
+    paddingHorizontal: width * 0.05,
+    paddingVertical: width * 0.02,
     alignItems: 'center',
   },
   btnMiniText: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: width * 0.035,
     fontFamily: Platform.select({ ios: 'Inter-SemiBold', android: 'Inter-SemiBold', default: 'sans-serif' }),
   },
   offerBanner: {
-    backgroundColor: '#E0F2FE',
-    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: width * 0.04,
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 16,
-    padding: 14,
-    marginBottom: 12,
-    shadowColor: '#3B82F6',
+    marginHorizontal: width * 0.04,
+    padding: width * 0.035,
+    marginBottom: width * 0.03,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    elevation: Platform.OS === 'web' ? 2 : 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 4,
   },
-  offerImg: { width: 80, height: 80, borderRadius: 16, marginRight: 12 },
+  offerImg: { width: width * 0.2, height: width * 0.2, borderRadius: width * 0.04, marginRight: width * 0.03 },
   offerHeading: {
     fontWeight: '800',
-    fontSize: 16,
+    fontSize: width * 0.04,
     color: '#1E3A8A',
-    marginBottom: 4,
+    marginBottom: width * 0.01,
     fontFamily: Platform.select({ ios: 'Inter-Black', android: 'Inter-Black', default: 'sans-serif' }),
   },
   offerSmall: {
     color: '#1E293B',
-    fontSize: 14,
-    marginBottom: 8,
+    fontSize: width * 0.035,
+    marginBottom: width * 0.02,
     fontFamily: Platform.select({ ios: 'Inter-Regular', android: 'Inter-Regular', default: 'sans-serif' }),
   },
   blogCard: {
-    backgroundColor: '#F1F5F9',
-    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: width * 0.04,
     alignItems: 'center',
     width: width * 0.6,
-    padding: 14,
-    marginRight: 16,
+    padding: width * 0.035,
+    marginRight: width * 0.04,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    elevation: Platform.OS === 'web' ? 2 : 3,
     shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
   },
-  blogImg: { width: '100%', height: 80, borderRadius: 12, marginBottom: 8 },
+  blogImg: { width: '100%', height: width * 0.2, borderRadius: width * 0.03, marginBottom: width * 0.02 },
   blogTitle: {
     fontWeight: '700',
-    fontSize: 15,
+    fontSize: width * 0.0375,
     color: '#1E3A8A',
     fontFamily: Platform.select({ ios: 'Inter-Bold', android: 'Inter-Bold', default: 'sans-serif' }),
   },
   faqCard: {
-    backgroundColor: '#E0F2FE',
-    borderRadius: 16,
-    marginBottom: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    shadowColor: '#3B82F6',
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: width * 0.04,
+    marginBottom: width * 0.025,
+    paddingHorizontal: width * 0.04,
+    paddingVertical: width * 0.035,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    elevation: Platform.OS === 'web' ? 2 : 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
   },
   faqQ: {
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: width * 0.04,
     color: '#1E3A8A',
     flex: 1,
     fontFamily: Platform.select({ ios: 'Inter-Bold', android: 'Inter-Bold', default: 'sans-serif' }),
   },
   faqA: {
-    marginTop: 8,
+    marginTop: width * 0.02,
     color: '#1E293B',
-    fontSize: 14,
+    fontSize: width * 0.035,
     fontFamily: Platform.select({ ios: 'Inter-Regular', android: 'Inter-Regular', default: 'sans-serif' }),
   },
   dlSection: {
-    backgroundColor: '#DBEAFE',
-    marginHorizontal: 16,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: '#3B82F6',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginHorizontal: width * 0.04,
+    borderRadius: width * 0.04,
+    padding: width * 0.05,
+    marginBottom: width * 0.05,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    elevation: Platform.OS === 'web' ? 2 : 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 4,
   },
   dlDesc: {
     color: '#1E3A8A',
-    marginBottom: 14,
+    marginBottom: width * 0.035,
     fontWeight: '500',
-    fontSize: 15,
+    fontSize: width * 0.0375,
     letterSpacing: 0.2,
     fontFamily: Platform.select({ ios: 'Inter-Medium', android: 'Inter-Medium', default: 'sans-serif' }),
   },
   dlRow: { flexDirection: 'row', justifyContent: 'space-between' },
   dlBtn: {
     flexDirection: 'row',
-    backgroundColor: '#3B82F6',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 24,
+    paddingVertical: width * 0.025,
+    paddingHorizontal: width * 0.05,
+    borderRadius: width * 0.06,
     alignItems: 'center',
-    marginRight: 14,
+    marginRight: width * 0.035,
   },
   dlBtnText: {
     color: '#F8FAFC',
-    marginLeft: 12,
+    marginLeft: width * 0.03,
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: width * 0.04,
     fontFamily: Platform.select({ ios: 'Inter-Bold', android: 'Inter-Bold', default: 'sans-serif' }),
   },
   testimonialCard2: {
-    backgroundColor: '#ECFDF5',
-    padding: 16,
-    borderRadius: 16,
-    marginRight: 16,
-    marginBottom: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: width * 0.04,
+    borderRadius: width * 0.04,
+    marginRight: width * 0.04,
+    marginBottom: width * 0.01,
     minWidth: width * 0.58,
     maxWidth: width * 0.66,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    elevation: Platform.OS === 'web' ? 2 : 3,
     shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
   },
   testimonialUser2: {
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: width * 0.04,
     color: '#065F46',
     fontFamily: Platform.select({ ios: 'Inter-Bold', android: 'Inter-Bold', default: 'sans-serif' }),
   },
   testimonialMsg2: {
-    fontSize: 14,
+    fontSize: width * 0.035,
     fontStyle: 'italic',
     color: '#1E293B',
-    marginTop: 8,
+    marginTop: width * 0.02,
     fontFamily: Platform.select({ ios: 'Inter-Regular', android: 'Inter-Regular', default: 'sans-serif' }),
   },
   footerMega: {
-    paddingTop: 32,
-    paddingBottom: 40,
-    paddingHorizontal: 20,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    paddingTop: width * 0.08,
+    paddingBottom: width * 0.1,
+    paddingHorizontal: width * 0.05,
+    borderTopLeftRadius: width * 0.06,
+    borderTopRightRadius: width * 0.06,
+    elevation: Platform.OS === 'web' ? 2 : 4,
     shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
   },
   footerRowTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: width * 0.06,
   },
   logoFooter: {
     fontWeight: '900',
-    fontSize: 30,
+    fontSize: width * 0.075,
     color: '#F8FAFC',
-    marginBottom: 6,
+    marginBottom: width * 0.015,
     fontFamily: Platform.select({ ios: 'Inter-Black', android: 'Inter-Black', default: 'sans-serif' }),
   },
   footerSlogan: {
     color: '#DBEAFE',
-    fontSize: 16,
-    marginBottom: 8,
+    fontSize: width * 0.04,
+    marginBottom: width * 0.02,
     fontFamily: Platform.select({ ios: 'Inter-Regular', android: 'Inter-Regular', default: 'sans-serif' }),
   },
   footerTagline: {
     color: '#BFDBFE',
-    fontSize: 14,
+    fontSize: width * 0.035,
     fontStyle: 'italic',
     fontFamily: Platform.select({ ios: 'Inter-Regular', android: 'Inter-Regular', default: 'sans-serif' }),
   },
-  socialIcons: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  socialIcons: { flexDirection: 'row', alignItems: 'center', gap: width * 0.03 },
   newsletterSection: {
-    marginBottom: 24,
-    padding: 16,
+    marginBottom: width * 0.06,
+    padding: width * 0.04,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 16,
+    borderRadius: width * 0.04,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   newsletterHeading: {
-    fontSize: 18,
+    fontSize: width * 0.045,
     fontWeight: '700',
     color: '#F8FAFC',
-    marginBottom: 6,
+    marginBottom: width * 0.015,
     fontFamily: Platform.select({ ios: 'Inter-Bold', android: 'Inter-Bold', default: 'sans-serif' }),
   },
   newsletterText: {
-    fontSize: 14,
+    fontSize: width * 0.035,
     color: '#DBEAFE',
-    marginBottom: 12,
+    marginBottom: width * 0.03,
     fontFamily: Platform.select({ ios: 'Inter-Regular', android: 'Inter-Regular', default: 'sans-serif' }),
   },
   newsletterInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderRadius: width * 0.03,
+    paddingHorizontal: width * 0.03,
+    paddingVertical: width * 0.02,
   },
   newsletterInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: width * 0.035,
     color: '#1E3A8A',
     fontFamily: Platform.select({ ios: 'Inter-Regular', android: 'Inter-Regular', default: 'sans-serif' }),
   },
   newsletterButton: {
-    backgroundColor: '#22C55E',
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    borderRadius: width * 0.025,
+    paddingHorizontal: width * 0.04,
+    paddingVertical: width * 0.02,
   },
   newsletterButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: width * 0.035,
     fontWeight: '600',
     fontFamily: Platform.select({ ios: 'Inter-SemiBold', android: 'Inter-SemiBold', default: 'sans-serif' }),
   },
@@ -916,34 +1009,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: Platform.OS === 'web' ? 'flex-start' : 'space-between',
-    marginBottom: 24,
+    marginBottom: width * 0.06,
   },
-  footerCol: { marginRight: 36, marginBottom: 12, minWidth: 100 },
+  footerCol: { marginRight: width * 0.09, marginBottom: width * 0.03, minWidth: width * 0.25 },
   footerHead: {
     fontWeight: '700',
     color: '#DBEAFE',
-    marginBottom: 8,
-    fontSize: 17,
+    marginBottom: width * 0.02,
+    fontSize: width * 0.0425,
     fontFamily: Platform.select({ ios: 'Inter-Bold', android: 'Inter-Bold', default: 'sans-serif' }),
   },
   footerLink: {
     color: '#BFDBFE',
-    marginBottom: 6,
-    fontSize: 15,
+    marginBottom: width * 0.015,
+    fontSize: width * 0.0375,
     fontFamily: Platform.select({ ios: 'Inter-Regular', android: 'Inter-Regular', default: 'sans-serif' }),
   },
   copyRight: {
     textAlign: 'center',
     color: '#DBEAFE',
-    fontSize: 13,
-    marginTop: 12,
+    fontSize: width * 0.0325,
+    marginTop: width * 0.03,
     fontFamily: Platform.select({ ios: 'Inter-Regular', android: 'Inter-Regular', default: 'sans-serif' }),
   },
   footerCredit: {
     textAlign: 'center',
     color: '#BFDBFE',
-    fontSize: 12,
-    marginTop: 8,
+    fontSize: width * 0.03,
+    marginTop: width * 0.02,
     fontFamily: Platform.select({ ios: 'Inter-Regular', android: 'Inter-Regular', default: 'sans-serif' }),
   },
 });

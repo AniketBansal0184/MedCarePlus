@@ -8,6 +8,7 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
@@ -29,33 +30,58 @@ export default function Signup() {
   const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const validatePhone = (phone: string) => /^[0-9]{10}$/.test(phone);
 
-  const signup = async () => {
-    if (!name || !email || !password || !phone) return setError('Please fill all fields');
-    if (!validateEmail(email)) return setError('Enter a valid email');
-    if (!validatePhone(phone)) return setError('Enter a valid 10-digit phone number');
-    setError('');
+const signup = async () => {
+  if (!name || !email || !password || !phone) return setError('Please fill all fields');
+  if (!validateEmail(email)) return setError('Enter a valid email');
+  if (!validatePhone(phone)) return setError('Enter a valid 10-digit phone number');
+  setError('');
 
-    try {
-      await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/api/auth/register`, { name, email, phone, password });
-      setEmailSent(true);
+  try {
+    const res = await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/api/auth/register`, {
+      name, email, phone, password
+    });
+
+    const user = res.data?.user || { name, email, phone, role: 'user' };
+    const userWithRole = {
+      ...user,
+      role: user.role || (email === 'aniket021978@gmail.com' ? 'admin' : 'user'),
+    };
+
+    setEmailSent(true);
+    setError('');
+    Alert.alert('Success', 'Verification email sent. Please check your inbox.', [
+      { text: 'OK', onPress: () => router.push('/login') },
+    ]);
+  } catch (err: any) {
+    const msg = err.response?.data?.message || 'Signup failed';
+
+    if (msg.includes('deleted by admin')) {
+      setError('❌ This email has been removed by admin. You cannot register again with this email.');
+    } else if (msg.includes('already exists')) {
+      setError('⚠️ You already have an account. Please log in.');
+    } else if (msg.includes('Verification email resent')) {
       setError('');
-      Alert.alert('Success', 'Verification email sent. Please check your inbox.', [
-        { text: 'OK', onPress: () => router.push('/login') },
-      ]);
-    } catch (err: any) {
-      const msg = err.response?.data?.message || 'Signup failed';
+      setEmailSent(true);
+    } else {
       setError(msg);
     }
-  };
+  }
+};
+
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior="padding"
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
       <LinearGradient colors={['#e0f2fe', '#f8fafc']} style={styles.bgGradient}>
         <SafeAreaView style={styles.innerContainer}>
+          <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
           <Image
             source={{ uri: 'https://cdn.pixabay.com/photo/2020/04/11/13/27/doctor-5028579_1280.jpg' }}
             style={styles.bgImage}
@@ -144,6 +170,7 @@ export default function Signup() {
               <Text style={styles.link}>Already have an account? Log in</Text>
             </TouchableOpacity>
           </MotiView>
+          </ScrollView>
         </SafeAreaView>
       </LinearGradient>
     </KeyboardAvoidingView>
@@ -170,16 +197,13 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 30,
-    right: 20,
+    top: Platform.OS === 'ios' ? 20 : 30,
+    right: 5,
     zIndex: 10,
     backgroundColor: '#ffffff',
     padding: 12,
     borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
+    boxShadow: '0px 2px 8px 000',
     elevation: 4,
   },
   logo: {
@@ -188,11 +212,13 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     borderRadius: 26,
     marginBottom: 28,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
+    boxShadow: '0px 4px 16px 000',
     elevation: 8,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingTop: 25,
   },
   title: {
     fontSize: 34,
@@ -209,7 +235,7 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontFamily: Platform.OS === 'ios' ? 'Avenir-Book' : 'Roboto',
     lineHeight: 24,
-    marginBottom: 36,
+    marginBottom: 10,
   },
   form: {
     width: '100%',
@@ -224,10 +250,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#0f172a',
     fontFamily: Platform.OS === 'ios' ? 'Avenir-Medium' : 'Roboto',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    boxShadow: '0px 3px 10px 000',
     elevation: 5,
     borderWidth: 0,
   },
@@ -244,10 +267,7 @@ const styles = StyleSheet.create({
   button: {
     width: '100%',
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
+    boxShadow: '0px 4px 12px 000',
     elevation: 6,
   },
   gradientButton: {
@@ -289,4 +309,5 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 });
+
 

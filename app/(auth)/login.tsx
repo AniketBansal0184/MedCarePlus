@@ -15,6 +15,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -26,39 +27,63 @@ export default function Login() {
 
   const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-  const handleLogin = async () => {
-    if (!email || !password) return setError('Please fill all fields');
-    if (!validateEmail(email)) return setError('Enter a valid email');
-    setError('');
+const handleLogin = async () => {
+  if (!email || !password) return setError('Please fill all fields');
+  if (!validateEmail(email)) return setError('Enter a valid email');
+  setError('');
 
-    try {
-      const res = await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/api/auth/login`, { email, password });
+  try {
+    const res = await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/api/auth/login`, { email, password });
 
-      const { user, token } = res.data;
+    const { user, token } = res.data;
 
-      await AsyncStorage.setItem('userId', user._id);
-      await AsyncStorage.setItem('token', token);
-      await AsyncStorage.setItem('userData', JSON.stringify(user));
+    await AsyncStorage.setItem('userId', user._id);
+    await AsyncStorage.setItem('token', token);
 
-      console.log('✅ Saved userId:', user._id);
+    const userWithRole = { ...user, role: user.role || (email === 'aniket021978@gmail.com' ? 'admin' : 'user') };
+    await AsyncStorage.setItem('userData', JSON.stringify(userWithRole));
 
-      Alert.alert('Welcome 👋', 'Login Successful!', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)/profile') },
-      ]);
-    } catch (err: any) {
-      const msg = err.response?.data?.message || err.response?.data?.msg || 'Login failed';
+    console.log('✅ Saved userId:', user._id);
+
+    Alert.alert('Welcome 👋', 'Login Successful!', [
+      { text: 'OK', onPress: () => router.replace('/(tabs)/profile') },
+    ]);
+  } catch (err: any) {
+    const msg = err.response?.data?.message || 'Login failed';
+
+    if (msg.includes('removed by admin')) {
+      setError('❌ You have been removed by the admin. You cannot login with this email.');
+    } else if (msg.includes('deleted your account')) {
+      setError('⚠️ You deleted your account. Please sign up again to continue.');
+    } else {
       setError(msg);
     }
-  };
+  }
+};
+
+const handleForgotPassword = async () => {
+  try {
+    const res = await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/api/auth/check-email`, { email });
+    router.push('/forgotpassword');
+  } catch (err: any) {
+    const msg = err.response?.data?.message || 'Something went wrong';
+    setError(msg);
+  }
+};
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior="padding"
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
       <LinearGradient colors={['#e0f2fe', '#f8fafc']} style={styles.bgGradient}>
         <SafeAreaView style={styles.innerContainer}>
+          <ScrollView
+                  contentContainerStyle={styles.scrollContent}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                >
           <Image
             source={{ uri: 'https://cdn.pixabay.com/photo/2020/04/11/13/27/doctor-5028579_1280.jpg' }}
             style={styles.bgImage}
@@ -118,7 +143,7 @@ export default function Login() {
 
             <TouchableOpacity
               style={styles.forgot}
-              onPress={() => router.push('/forgotpassword')}
+              onPress={handleForgotPassword}
             >
               <Text style={styles.forgotText}>Forgot Password?</Text>
             </TouchableOpacity>
@@ -136,6 +161,7 @@ export default function Login() {
               <Text style={styles.link}>Don’t have an account? Create one</Text>
             </TouchableOpacity>
           </MotiView>
+          </ScrollView>
         </SafeAreaView>
       </LinearGradient>
     </KeyboardAvoidingView>
@@ -162,16 +188,13 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 30,
-    right: 20,
+    top: Platform.OS === 'ios' ? 20 : 30,
+    right: 2,
     zIndex: 10,
     backgroundColor: '#ffffff',
     padding: 12,
     borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
+    boxShadow: '0px 2px 8px 000',
     elevation: 4,
   },
   logo: {
@@ -180,11 +203,13 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     borderRadius: 26,
     marginBottom: 28,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
+    boxShadow: '0px 4px 16px 000',
     elevation: 8,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingTop: 20,
   },
   title: {
     fontSize: 34,
@@ -201,7 +226,7 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontFamily: Platform.OS === 'ios' ? 'Avenir-Book' : 'Roboto',
     lineHeight: 24,
-    marginBottom: 36,
+    marginBottom: 15,
   },
   form: {
     width: '100%',
@@ -216,10 +241,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#0f172a',
     fontFamily: Platform.OS === 'ios' ? 'Avenir-Medium' : 'Roboto',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    boxShadow: '0px 3px 10px 000',
     elevation: 5,
     borderWidth: 0,
   },
@@ -229,9 +251,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 14,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    boxShadow: '0px 0px 10px 000',
   },
   eyeIcon: {
     padding: 12,
@@ -258,10 +278,7 @@ const styles = StyleSheet.create({
   button: {
     width: '100%',
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
+    boxShadow: '0px 4px 12px 000',
     elevation: 6,
   },
   buttonText: {

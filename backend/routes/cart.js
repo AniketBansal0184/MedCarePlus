@@ -9,6 +9,7 @@ const generateInvoice = require('../utils/invoiceGenerator');
 const nodemailer = require('nodemailer');
 const fs = require('fs');
 const path = require('path');
+const DeleteFeedback = require('../models/DeleteFeedback');
 
 router.post('/save/:userId', async (req, res) => {
   const { items } = req.body;
@@ -285,6 +286,7 @@ router.get('/:userId', async (req, res) => {
 
 router.delete('/user/delete/:userId', async (req, res) => {
   let userId;
+
   try {
     userId = new mongoose.Types.ObjectId(req.params.userId);
   } catch (e) {
@@ -292,23 +294,30 @@ router.delete('/user/delete/:userId', async (req, res) => {
   }
 
   try {
-    const user = await User.findByIdAndDelete(userId);
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    user.isDeleted = true;
+    user.deletedAt = new Date();
+    user.deletedByAdmin = req.user?.role === 'admin';
+    await user.save();
+
+    // Optional: cleanup related data
     await Cart.deleteOne({ userId });
     await Coupon.updateMany(
       { usedBy: userId },
       { $pull: { usedBy: userId } }
     );
 
-    res.json({ success: true, message: 'User profile and associated data deleted successfully' });
+    res.json({ success: true, message: 'User soft-deleted and data cleaned up.' });
   } catch (err) {
-    console.error('Delete User Error:', err);
-    res.status(500).json({ error: 'Failed to delete user profile' });
+    console.error('Soft Delete Error:', err);
+    res.status(500).json({ error: 'Something went wrong' });
   }
 });
+
 
 router.put('/user/update/:userId', async (req, res) => {
   let userId;
@@ -365,5 +374,26 @@ router.get('/orders/:userId', async (req, res) => {
   }
 });
 
+router.post('/delete-feedback', async (req, res) => {
+  try {
+    const { userId, rating, feedback } = req.body;
+
+    if (!userId || !feedback || !rating) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    const saved = await DeleteFeedback.create({
+      userId,
+      rating,
+      feedback,
+      createdAt: new Date(),
+    });
+
+    res.json({ success: true, message: 'Feedback saved', data: saved });
+  } catch (err) {
+    console.error('Error saving delete feedback:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 module.exports = router;

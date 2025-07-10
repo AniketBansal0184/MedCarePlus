@@ -310,10 +310,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     padding: 12,
     borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
+    boxShadow: '0px 2px 8px 000',
     elevation: 4,
   },
   header: {
@@ -354,10 +351,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#0f172a',
     fontFamily: Platform.OS === 'ios' ? 'Avenir-Medium' : 'Roboto',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    boxShadow: '0px 3px 10px 000',
     elevation: 5,
   },
   passwordWrapper: {
@@ -366,10 +360,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 14,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    boxShadow: '0px 3px 10px 000',
     elevation: 5,
   },
   eyeIcon: {
@@ -378,10 +369,7 @@ const styles = StyleSheet.create({
   button: {
     width: '100%',
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
+    boxShadow: '0px 4px 12px 000',
     elevation: 6,
   },
   buttonDisabled: {

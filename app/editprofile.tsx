@@ -156,10 +156,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 20,
     borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
+    boxShadow: '0px 4px 12px 000',
     elevation: 6,
   },
   label: {
@@ -180,10 +177,7 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     marginTop: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
+    boxShadow: '0px 4px 12px 000',
     elevation: 6,
   },
   gradientButton: {

@@ -27,7 +27,20 @@ router.post('/register', async (req, res) => {
     let user = await User.findOne({ email });
 
     if (user) {
-      if (user.verified) {
+      if (user.isDeleted) {
+    if (user.deletedByAdmin) {
+      const deletedTime = new Date(user.deletedAt);
+      const now = new Date();
+      const diff = now.getTime() - deletedTime.getTime();
+
+      if (diff < 24 * 60 * 60 * 1000) {
+        return res.status(403).json({
+          message: 'This email was removed by admin. You can sign up again after 24 hours.',
+        });
+    }} else {
+      await User.findByIdAndDelete(user._id);
+    }
+  }else if (user.verified) {
         return res.status(400).json({ message: 'User already exists. Please login.' });
       } else {
         await sendVerificationMail(user, 'http://172.20.10.2:5000');
@@ -52,14 +65,23 @@ router.get('/verify/:token', async (req, res) => {
     const decoded = jwt.verify(req.params.token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.id);
 
-    if (!user) return res.status(404).send('User not found');
+    if (!user) return res.status(404).send('User not found or was deleted.');
+
+    if (user.isDeleted) {
+      return res.status(403).send('❌ This account was deleted and cannot be verified.');
+    }
+
+    if (user.verified) {
+      return res.send('✅ Email already verified. You can log in.');
+    }
 
     user.verified = true;
     await user.save();
 
-    res.send('✅ Email verified! You can now login.');
+    res.send('✅ Email verified successfully! You can now log in.');
   } catch (err) {
-    res.status(400).send('Invalid or expired token');
+    console.error(err);
+    res.status(400).send('Invalid or expired verification link');
   }
 });
 
@@ -67,31 +89,53 @@ router.get('/verify/:token', async (req, res) => {
 // Login with verification check
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
+
   try {
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
     const user = await User.findOne({ email });
+
     if (!user) {
       return res.status(400).json({ message: 'User not found. Please sign up first.' });
     }
 
+    // 🔒 Handle soft-deleted user logic
+    if (user.isDeleted) {
+      const deletedTime = new Date(user.deletedAt);
+      const now = new Date();
+      const diff = now.getTime() - deletedTime.getTime(); // in ms
+
+      if (user.deletedByAdmin) {
+        if (diff < 24 * 60 * 60 * 1000) {
+          return res.status(403).json({ message: 'This account was removed by admin. Try again after 24 hours.' });
+        } else {
+          return res.status(403).json({ message: 'You have been removed by admin. You cannot login with this email.' });
+        }
+      } else {
+        return res.status(403).json({ message: 'You deleted your account. Please register again.' });
+      }
+    }
+
+    // 🔐 Check email verification
     if (!user.verified) {
       return res.status(403).json({ message: 'Please verify your email first' });
     }
 
+    // 🔑 Compare password
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
       return res.status(400).json({ message: 'Incorrect password' });
     }
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
-    const { _id, name, phone } = user;
+    // ✅ Generate token and respond
+    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET);
+    const { _id, name, phone, role } = user;
 
     res.json({
       token,
-      user: { _id, name, email, phone }
+      user: { _id, name, email, phone, role }
     });
 
   } catch (err) {
@@ -99,6 +143,8 @@ router.post('/login', async (req, res) => {
     res.status(500).json({ message: 'Server error during login' });
   }
 });
+
+
 
 router.post('/forgotpassword', async (req, res) => {
   console.log('Received request to /forgotpassword with body:', req.body);
@@ -189,5 +235,32 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
+router.post('/check-email', async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ message: 'No account found with this email' });
+    }
+
+    if (user.isDeleted) {
+      const deletedAt = new Date(user.deletedAt || 0);
+      const hoursPassed = (Date.now() - deletedAt.getTime()) / 3600000;
+
+      if (user.deletedByAdmin && hoursPassed < 24) {
+        return res.status(403).json({ message: '🚫 You were removed by admin. Try again after 24 hours.' });
+      }
+
+      return res.status(403).json({ message: '⚠️ You deleted this account. Please sign up again.' });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Email Check Error:', err);
+    res.status(500).json({ message: 'Server error checking email' });
+  }
+});
 
 module.exports = router;

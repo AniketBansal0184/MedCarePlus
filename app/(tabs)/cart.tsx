@@ -20,6 +20,17 @@ export default function Cart() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  useEffect(() => {
+  const checkAdmin = async () => {
+    const data = await AsyncStorage.getItem('userData');
+    const parsed = data ? JSON.parse(data) : null;
+    if (parsed?.role === 'admin') {
+      router.replace('/(tabs)/profile'); // block admin access
+    }
+  };
+  checkAdmin();
+}, []);
+
   const fetchCart = async (id) => {
     setLoading(true);
     try {
@@ -374,10 +385,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderBottomWidth: 0.5,
     borderBottomColor: 'rgba(229, 231, 235, 0.3)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
+    boxShadow: '0px 3px 8px 000',
     elevation: 6,
   },
   header: {
@@ -448,10 +456,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     padding: 20,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
+    boxShadow: '0px -4px 10px 000',
   },
   modalTitle: {
     fontSize: 18,
@@ -521,10 +526,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginVertical: 8,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    boxShadow: '0px 3px 8px 000',
     elevation: 5,
     borderWidth: 0.3,
     borderColor: 'rgba(229, 231, 235, 0.3)',
@@ -566,10 +568,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    boxShadow: '0px 1px 4px 000',
     elevation: 3,
   },
   qtyBtnPressed: {
@@ -594,10 +593,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
+    boxShadow: '0px 2px 4px 000',
     elevation: 3,
   },
   price: {
@@ -622,10 +618,7 @@ const styles = StyleSheet.create({
     padding: 20,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
+    boxShadow: '0px -3px 10px 000',
     elevation: 8,
   },
   total: {
@@ -639,10 +632,7 @@ const styles = StyleSheet.create({
   btn: {
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
+    boxShadow: '0px 3px 8px 000',
     elevation: 6,
   },
   btnPressed: {
