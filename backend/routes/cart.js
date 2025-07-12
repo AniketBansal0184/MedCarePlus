@@ -10,6 +10,9 @@ const nodemailer = require('nodemailer');
 const fs = require('fs');
 const path = require('path');
 const DeleteFeedback = require('../models/DeleteFeedback');
+const Subscriber = require('../models/Subscriber');
+
+require('dotenv').config();
 
 router.post('/save/:userId', async (req, res) => {
   const { items } = req.body;
@@ -393,6 +396,147 @@ router.post('/delete-feedback', async (req, res) => {
   } catch (err) {
     console.error('Error saving delete feedback:', err);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.post('/subscribe', async (req, res) => {
+  const email = req.body.email?.trim().toLowerCase();
+if (!email) return res.status(400).json({ success: false, error: 'Email is required' });
+
+const alreadySubscribed = await Subscriber.findOne({ email });
+if (alreadySubscribed) {
+  return res.status(400).json({ success: false, error: 'You are already subscribed' });
+}
+
+await Subscriber.create({ email, subscribedAt: new Date() });
+
+  try {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 587,
+      auth: {
+        user: process.env.MAIL_USER,
+        pass: process.env.MAIL_PASS,
+      },
+    });
+
+    const token = Buffer.from(email).toString('base64');
+    const unsubscribeLink = `${process.env.API_BASE_URL}/api/cart/unsubscribe-direct/${token}`;
+
+    const htmlContent = `
+      <div style="font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: auto; padding: 20px; background-color: #f9fafb; border: 1px solid #e5e7eb;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <img src="https://cdn-icons-png.flaticon.com/512/3771/3771333.png" alt="MediCare+ Logo" width="64" />
+          <h2 style="color: #0284c7; margin-top: 10px;">Welcome to MediCare+</h2>
+        </div>
+
+        <p>Hi there,</p>
+        <p>Thank you for subscribing to <strong>MediCare+</strong>! 🎉</p>
+        <p>You'll now receive updates on:</p>
+        <ul style="margin-left: 20px;">
+          <li>🔔 New medicine launches</li>
+          <li>💊 Health tips and blogs</li>
+          <li>🎁 Exclusive discounts & offers</li>
+        </ul>
+        <p>Stay tuned for more!</p>
+
+        <p style="margin-top: 20px;">Need help? Reach us at <a href="mailto:support@medicare.com">support@medicare.com</a>.</p>
+
+        <p style="text-align: center; font-size: 14px; margin-top: 30px;">
+          Don’t want these emails? <a href="${unsubscribeLink}" style="color: #ef4444;">Unsubscribe</a>
+        </p>
+
+        <p style="color: #6b7280; font-size: 12px; margin-top: 30px; text-align: center;">
+          © ${new Date().getFullYear()} MediCare+. All rights reserved.
+        </p>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: `"MediCare+" <${process.env.MAIL_USER}>`,
+      to: email,
+      subject: '✅ You’re subscribed to MediCare+',
+      html: htmlContent,
+    });
+
+    res.json({ success: true, message: 'Subscription confirmation email sent.' });
+  } catch (err) {
+    console.error('Subscription Email Error:', err);
+    res.status(500).json({ error: 'Failed to send subscription email' });
+  }
+});
+
+router.get('/unsubscribe-direct/:token', async (req, res) => {
+  try {
+    const token = req.params.token;
+    const email = Buffer.from(token, 'base64').toString('utf-8').trim().toLowerCase();
+
+    if (!email) return res.status(400).send('Invalid request');
+
+    const unsubscribed = await Subscriber.findOneAndDelete({ email });
+
+    if (!unsubscribed) {
+      return res.status(404).send('Email not found or already unsubscribed');
+    }
+
+    // Send confirmation email
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.MAIL_USER,
+        pass: process.env.MAIL_PASS,
+      },
+    });
+
+    const html = `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2 style="color: #e11d48;">You’ve been unsubscribed</h2>
+        <p>You will no longer receive updates from <strong>MediCare+</strong>.</p>
+        <p>If this was a mistake, you can <a href="mailto:support@medicare.com">contact support</a>.</p>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: `"MediCare+" <${process.env.MAIL_USER}>`,
+      to: email,
+      subject: 'You have been unsubscribed from MediCare+',
+      html,
+    });
+
+    res.send(`
+      <div style="
+  font-family: 'Segoe UI', sans-serif;
+  padding: 30px;
+  max-width: 600px;
+  margin: auto;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+  color: #1f2937;
+">
+  <div style="text-align: center;">
+    <img src="https://cdn-icons-png.flaticon.com/512/1828/1828843.png" alt="Unsubscribed Icon" width="60" />
+    <h2 style="color: #dc2626; margin-top: 15px;">You’ve been unsubscribed</h2>
+  </div>
+  <p style="font-size: 16px; line-height: 1.6; margin-top: 20px;">
+    You will no longer receive updates from <strong>MediCare+</strong>.
+  </p>
+  <p style="font-size: 15px; color: #6b7280;">
+    If this was a mistake, please <a href="mailto:support@medicare.com" style="color: #2563eb;">contact support</a>.
+  </p>
+  <p style="font-size: 15px; color: #4b5563; margin-top: 20px;">
+    We hope to see you again in the future. Your health is important to us!
+  </p>
+  <p style="font-size: 15px; color: #4b5563;">
+    Thank you for being a part of our community.
+  </p>
+</div>
+    `);
+  } catch (err) {
+    console.error('Direct Unsubscribe Error:', err);
+    res.status(500).send('Something went wrong. Please try again later.');
   }
 });
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ScrollView, Image, Linking, Platform, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ScrollView, Image, Linking, Platform, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { MotiView, MotiImage, MotiText, AnimatePresence } from 'moti';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
@@ -7,6 +7,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useAnimatedScrollHandler, useSharedValue, interpolate, useAnimatedStyle } from 'react-native-reanimated';
+
 const { width, height } = Dimensions.get('window');
 
 export default function Home() {
@@ -20,7 +21,7 @@ export default function Home() {
     const data = await AsyncStorage.getItem('userData');
     const parsed = data ? JSON.parse(data) : null;
     if (parsed?.role === 'admin') {
-      router.replace('/(tabs)/profile'); // block admin access
+      router.replace('/(tabs)/profile'); 
     }
   };
   checkAdmin();
@@ -424,12 +425,52 @@ function Testimonial({ user, msg, img, index }) {
 
 function Footer() {
   const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleNewsletterSignup = () => {
-    if (!email) return alert('Please enter an email address');
-    alert('Thank you for subscribing to MediCare+ updates!');
-    setEmail('');
-  };
+  const handleNewsletterSignup = async () => {
+    const storedUserId = await AsyncStorage.getItem('userId');
+
+  if (!storedUserId) {
+    Alert.alert('Login Required', 'Please log in before subscribing.');
+    return;
+  }
+  if(!email) {
+    Alert.alert('Email Required', 'Please enter your email to subscribe.');
+    return;
+  }
+  const adminEmail = `${process.env.EXPO_PUBLIC_ADMIN_EMAIL}` || '';
+  console.log('Admin Email from env:', adminEmail);
+
+  if (email.toLowerCase() === adminEmail.toLowerCase()) {
+    Alert.alert('Subscription Denied', 'Admin email cannot be used for subscription.');
+    return;
+  }
+  setLoading(true);
+
+  try {
+    const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/cart/subscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json',Authorization: `Bearer ${storedUserId}` },
+      body: JSON.stringify({ email }),
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      Alert.alert('Subscribed!', 'Check your inbox for confirmation.');
+      setEmail('');
+    } else {
+      if (result.error?.toLowerCase().includes('already subscribed')) {
+        Alert.alert('Already Subscribed', 'This email is already on our list.');
+      } else {
+        Alert.alert('Error', result.error || 'Something went wrong');
+      }
+    }
+  } catch (err) {
+    Alert.alert('Network Error', 'Failed to subscribe. Try again later.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <MotiView
@@ -486,18 +527,23 @@ function Footer() {
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
-              <TouchableOpacity onPress={handleNewsletterSignup}>
-                <MotiView
-                  from={{ scale: 1 }}
-                  whileHover={{ scale: Platform.OS === 'web' ? 1.05 : 1 }}
-                  whileTap={{ scale: 0.95 }}
-                  transition={{ type: 'spring', duration: 200, stiffness: 160, damping: 12 }}
-                >
-                  <LinearGradient colors={['#22C55E', '#34D399']} style={styles.newsletterButton}>
-                    <Text style={styles.newsletterButtonText}>Subscribe</Text>
-                  </LinearGradient>
-                </MotiView>
-              </TouchableOpacity>
+              <TouchableOpacity onPress={handleNewsletterSignup} disabled={loading}>
+  <MotiView
+    from={{ scale: 1 }}
+    whileHover={{ scale: Platform.OS === 'web' ? 1.05 : 1 }}
+    whileTap={{ scale: 0.95 }}
+    transition={{ type: 'spring', duration: 200, stiffness: 160, damping: 12 }}
+  >
+    <LinearGradient colors={['#22C55E', '#34D399']} style={styles.newsletterButton}>
+      {loading ? (
+        <ActivityIndicator color="#fff" size="small" />
+      ) : (
+        <Text style={styles.newsletterButtonText}>Subscribe</Text>
+      )}
+    </LinearGradient>
+  </MotiView>
+</TouchableOpacity>
+
             </View>
           </View>
         </MotiView>
@@ -582,10 +628,6 @@ const faqs = [
   {
     q: 'Is my prescription safe?',
     a: 'Absolutely. Your documents are securely encrypted and handled by verified pharmacists only.',
-  },
-  {
-    q: 'Do you offer consultation?',
-    a: 'Yes! You can consult verified doctors within the app, book appointments, and even chat or video call them.',
   },
 ];
 
